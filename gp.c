@@ -14,7 +14,7 @@ typedef struct {
 } Program;
 
 enum instruction_enum {
-    ADD, SUB, MUL, DIV, POW, SIN, COS, X, C1, C2, C3, C4, C5, C6, C7, C8
+    ADD, SUB, MUL, DIV, SQRT, EXP, COS, X, C1, C2, C3, C4, C5, C6, C7, C8
 };
 
 #define C1_VAL +1.0
@@ -28,9 +28,8 @@ enum instruction_enum {
 
 #define STACK_SIZE 1024
 
-double safepow(double x, double y) {
-    double res = pow(x, y);
-    return isnan(res) ? 0 : res;
+double safesqrt(double x) {
+    return x >= 0 ? sqrt(x) : 0;
 }
 
 double eval(Program *program, double x) {
@@ -70,15 +69,15 @@ double eval(Program *program, double x) {
                 tos--;
             }
             break;
-        case POW:
-            if (tos >= 2) {
-                stack[tos - 2] = safepow(stack[tos - 2], stack[tos - 1]);
+        case SQRT:
+            if (tos >= 1) {
+                stack[tos - 1] = safesqrt(stack[tos - 1]);
                 tos--;
             }
             break;
-        case SIN:
+        case EXP:
             if (tos >= 1) {
-                stack[tos - 1] = sin(stack[tos - 1]);
+                stack[tos - 1] = exp(stack[tos - 1]);
             }
             break;
         case COS:
@@ -133,11 +132,11 @@ void print_program(Program *program) {
         case DIV:
             fprintf(stderr, "DIV\n");
             break;
-        case POW:
-            fprintf(stderr, "POW\n");
+        case SQRT:
+            fprintf(stderr, "SQRT\n");
             break;
-        case SIN:
-            fprintf(stderr, "SIN\n");
+        case EXP:
+            fprintf(stderr, "EXP\n");
             break;
         case COS:
             fprintf(stderr, "COS\n");
