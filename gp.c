@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <math.h>
 #include <time.h>
+#include <string.h>
 
 typedef uint8_t instruction_t;
 
@@ -13,8 +14,7 @@ typedef struct {
 } Program;
 
 enum instruction_enum {
-    NOP, ADD, SUB, MUL, DIV, POW, SIN, COS,
-    X, C1, C2, C3, C4, C5, C6, C7
+    ADD, SUB, MUL, DIV, POW, SIN, COS, X, C1, C2, C3, C4, C5, C6, C7, C8
 };
 
 #define C1_VAL +1.0
@@ -23,19 +23,25 @@ enum instruction_enum {
 #define C4_VAL -0.5
 #define C5_VAL +0.25
 #define C6_VAL -0.25
-#define C7_VAL 0.0
+#define C7_VAL +0.125
+#define C8_VAL -0.125
 
 #define STACK_SIZE 1024
 
-float eval(Program *program, float x) {
-    float stack[STACK_SIZE];
+double safepow(double x, double y) {
+    double res = pow(x, y);
+    return isnan(res) ? 0 : res;
+}
+
+double eval(Program *program, double x) {
+    double stack[STACK_SIZE];
     size_t tos = 0;
     size_t pc = 0;
     while (pc < program->length) {
-        assert(tos < STACK_SIZE);
+        if (tos >= STACK_SIZE) {
+            return 0;
+        }
         switch (program->code[pc++]) {
-        case NOP:
-            break;
         case ADD:
             if (tos >= 2) {
                 stack[tos - 2] = stack[tos - 2] + stack[tos - 1];
@@ -66,18 +72,18 @@ float eval(Program *program, float x) {
             break;
         case POW:
             if (tos >= 2) {
-                stack[tos - 2] = pow(stack[tos - 2], stack[tos - 1]);
+                stack[tos - 2] = safepow(stack[tos - 2], stack[tos - 1]);
                 tos--;
             }
             break;
         case SIN:
             if (tos >= 1) {
-                stack[tos] = sin(stack[tos]);
+                stack[tos - 1] = sin(stack[tos - 1]);
             }
             break;
         case COS:
             if (tos >= 1) {
-                stack[tos] = cos(stack[tos]);
+                stack[tos - 1] = cos(stack[tos - 1]);
             }
             break;
         case X:
@@ -104,6 +110,9 @@ float eval(Program *program, float x) {
         case C7:
             stack[tos++] = C7_VAL;
             break;
+        case C8:
+            stack[tos++] = C8_VAL;
+            break;
         }        
     }
     return tos > 0 ? stack[tos - 1] : 0;
@@ -112,60 +121,76 @@ float eval(Program *program, float x) {
 void print_program(Program *program) {
     for (ssize_t i = 0; i < program->length; i++) {
         switch (program->code[i]) {
-        case NOP:
-            printf("NOP\n");
-            break;
         case ADD:
-            printf("ADD\n");
+            fprintf(stderr, "ADD\n");
             break;
         case SUB:
-            printf("SUB\n");
+            fprintf(stderr, "SUB\n");
             break;
         case MUL:
-            printf("MUL\n");
+            fprintf(stderr, "MUL\n");
             break;
         case DIV:
-            printf("DIV\n");
+            fprintf(stderr, "DIV\n");
             break;
         case POW:
-            printf("POW\n");
+            fprintf(stderr, "POW\n");
             break;
         case SIN:
-            printf("SIN\n");
+            fprintf(stderr, "SIN\n");
             break;
         case COS:
-            printf("COS\n");
+            fprintf(stderr, "COS\n");
             break;
         case X:
-            printf("PUSH X\n");
+            fprintf(stderr, "PUSH X\n");
             break;
         case C1:
-            printf("PUSH %f\n", C1_VAL);
+            fprintf(stderr, "PUSH %f\n", C1_VAL);
             break;
         case C2:
-            printf("PUSH %f\n", C2_VAL);
+            fprintf(stderr, "PUSH %f\n", C2_VAL);
             break;
         case C3:
-            printf("PUSH %f\n", C3_VAL);
+            fprintf(stderr, "PUSH %f\n", C3_VAL);
             break;
         case C4:
-            printf("PUSH %f\n", C4_VAL);
+            fprintf(stderr, "PUSH %f\n", C4_VAL);
             break;
         case C5:
-            printf("PUSH %f\n", C5_VAL);
+            fprintf(stderr, "PUSH %f\n", C5_VAL);
             break;
         case C6:
-            printf("PUSH %f\n", C6_VAL);
+            fprintf(stderr, "PUSH %f\n", C6_VAL);
             break;
         case C7:
-            printf("PUSH %f\n", C7_VAL);
+            fprintf(stderr, "PUSH %f\n", C7_VAL);
+            break;
+        case C8:
+            fprintf(stderr, "PUSH %f\n", C8_VAL);
             break;
         }        
     }
 }
 
 size_t randsize(size_t min_size, size_t max_size) {
-    return min_size + (max_size - min_size) * ((double)rand() / (double)RAND_MAX);
+    /* [min_size,max_size) */
+    return min_size + (max_size - min_size - 1) * ((double)rand() / (double)RAND_MAX);
+}
+
+void crossover(Program *p1, Program *p2, Program **c1, Program **c2) {
+    size_t i = randsize(0, p1->length);
+    size_t j = randsize(0, p2->length);
+    *c1 = malloc(sizeof(Program));
+    *c2 = malloc(sizeof(Program));
+    (*c1)->length = i + p2->length - j;
+    (*c2)->length = j + p1->length - i;
+    (*c1)->code = malloc(sizeof(instruction_t) * (i + p2->length - j));
+    (*c2)->code = malloc(sizeof(instruction_t) * (j + p1->length - i));
+    memcpy((*c1)->code, p1->code, sizeof(instruction_t) * i);
+    memcpy((*c2)->code, p2->code, sizeof(instruction_t) * j);
+    memcpy((*c1)->code + i, p2->code + j, sizeof(instruction_t) * (p2->length - j));
+    memcpy((*c2)->code + j, p1->code + i, sizeof(instruction_t) * (p1->length - i));        
 }
 
 instruction_t randinst() {
@@ -186,39 +211,115 @@ Program *random_program() {
     return program;
 }
 
-float calc_fitness(Program *program) {
-    float fitness = 0;
-    for (int i = 0; i < 20; i++) {
-        float x = -1 + ((float)i/10.0);
-        float y = x*x;
-        fitness += fabs(y - eval(program, x));
+#define SIZE_PENALTY 0.005
+
+double calc_error(Program *program) {
+    double error = 0;
+    for (int i = 0; i < 200; i++) {
+        double x = -1 + ((double)i/100.0);
+        double y = sin(5*x)*x;
+        error += fabs(y - eval(program, x));
     }
-    return fitness;
+    return error + SIZE_PENALTY * (double)(program->length);
 }
 
-#define POPULATION_SIZE 1024
+void print_data(Program *program) {
+    for (int i = 0; i < 200; i++) {
+        double x = -1 + ((double)i/100.0);
+        double y = eval(program, x);
+        printf("%f %f\n", x, y);
+    }
+}
+
+double randprob() {
+    return (double)(rand())/((double)(RAND_MAX));
+}
+
+#define POPULATION_SIZE 1000
+#define N_GENERATIONS 1000
+#define CROSSOVER_PROB 0.80
+
+Program *select_prop(Program **population, double *fitnesses, double max_fitness) {
+    size_t randi = randsize(0, POPULATION_SIZE);
+    if (randprob() < fitnesses[randi]/max_fitness) {
+        return population[randi];
+    }
+    return select_prop(population, fitnesses, max_fitness);
+}
+
+Program *copy_program(Program *program) {
+    Program *new_program = malloc(sizeof(Program));
+    new_program->length = program->length;
+    new_program->code = malloc(sizeof(instruction_t) * program->length);
+    memcpy(new_program->code, program->code, sizeof(instruction_t) * program->length);
+    return new_program;
+}
+
+void free_program(Program *program) {
+    free(program->code);
+    free(program);
+}
+
+void free_programs(Program **population) {
+    for (int i = 0; i < POPULATION_SIZE; i++) {
+        free_program(population[i]);
+    }
+}
 
 int main(int argc, char **argv) {
-    srand(time(0));
+    if (argc == 2) {
+        srand(atoi(argv[1]));
+    } else {
+        srand(time(0));
+    }
     
     Program *population[POPULATION_SIZE];
+    Program *new_population[POPULATION_SIZE];
+
     for (int i = 0; i < POPULATION_SIZE; i++) {
         population[i] = random_program();
     }
 
-    float best_fitness = MAXFLOAT;
-    int best_i = -1;
-    for (int i = 0; i < POPULATION_SIZE; i++) {
-        float fitness = calc_fitness(population[i]);
-        if (fitness < best_fitness) {
-            best_fitness = fitness;
-            best_i = 0;
+    double fitnesses[POPULATION_SIZE];
+
+    for (int g = 1; g <= N_GENERATIONS; g++) {
+        double max_fitness = 0;
+        double total_fitness = 0;
+        int max_i = -1;
+        for (int i = 0; i < POPULATION_SIZE; i++) {
+            double fitness = 1 / (1 + calc_error(population[i]));
+            total_fitness += fitness;
+            fitnesses[i] = fitness;
+            if (fitness > max_fitness) {
+                max_fitness = fitness;
+                max_i = i;
+            }
+        }
+
+        if ((g-1) % 100 == 0) {
+            fprintf(stderr, "gen %d, max fitness %f, avg. fitness %f\n", g, max_fitness, total_fitness / (double)POPULATION_SIZE);
+        }
+
+        if (g < N_GENERATIONS) {
+            new_population[0] = copy_program(population[max_i]);
+            int j = 1;
+            while (j < POPULATION_SIZE) {
+                if (randprob() < CROSSOVER_PROB && j + 1 < POPULATION_SIZE) {
+                    crossover(select_prop(population, fitnesses, max_fitness), select_prop(population, fitnesses, max_fitness), &new_population[j], &new_population[j+1]);
+                    j += 2;
+                } else {
+                    new_population[j++] = copy_program(select_prop(population, fitnesses, max_fitness));
+                }
+            }
+            free_programs(population);
+            memcpy(population, new_population, sizeof(Program *) * POPULATION_SIZE);
+        } else {            
+            print_program(population[max_i]);
+            print_data(population[max_i]);
         }
     }
 
-    printf("got a best fitness of %f\n", best_fitness);
-    printf("best program:\n");
-    print_program(population[best_i]);
-    
+    free_programs(population);
+
     return 0;
 }
