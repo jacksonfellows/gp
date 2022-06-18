@@ -6,27 +6,7 @@
 #include <time.h>
 #include <string.h>
 
-typedef uint8_t instruction_t;
-
-typedef struct {
-    size_t length;
-    instruction_t *code;
-} Program;
-
-enum instruction_enum {
-    ADD, SUB, MUL, DIV, SQRT, EXP, COS, X, C1, C2, C3, C4, C5, C6, C7, C8
-};
-
-#define C1_VAL +1.0
-#define C2_VAL -1.0
-#define C3_VAL +0.5
-#define C4_VAL -0.5
-#define C5_VAL +0.25
-#define C6_VAL -0.25
-#define C7_VAL +0.125
-#define C8_VAL -0.125
-
-#define STACK_SIZE 1024
+#include "gp.h"
 
 double safesqrt(double x) {
     return x >= 0 ? sqrt(x) : 0;
@@ -71,8 +51,7 @@ double eval(Program *program, double x) {
             break;
         case SQRT:
             if (tos >= 1) {
-                stack[tos - 1] = safesqrt(stack[tos - 1]);
-                tos--;
+                stack[tos - 1] = safesqrt(stack[tos - 1]);                
             }
             break;
         case EXP:
@@ -214,9 +193,9 @@ Program *random_program() {
 
 double calc_error(Program *program) {
     double error = 0;
-    for (int i = 0; i < 200; i++) {
-        double x = -1 + ((double)i/100.0);
-        double y = sin(5*x)*x;
+    for (int i = 0; i < 20; i++) {
+        double x = -1 + ((double)i/10.0);
+        double y = x*x;
         error += fabs(y - eval(program, x));
     }
     return error + SIZE_PENALTY * (double)(program->length);
@@ -234,23 +213,23 @@ double randprob() {
     return (double)(rand())/((double)(RAND_MAX));
 }
 
-#define POPULATION_SIZE 1000
-#define N_GENERATIONS 1000
-#define CROSSOVER_PROB 0.80
-
-Program *select_prop(Program **population, double *fitnesses, double max_fitness) {
-    size_t randi = randsize(0, POPULATION_SIZE);
+Program *select_prop(Program **population, size_t population_size, double *fitnesses, double max_fitness) {
+    size_t randi = randsize(0, population_size);
     if (randprob() < fitnesses[randi]/max_fitness) {
         return population[randi];
     }
-    return select_prop(population, fitnesses, max_fitness);
+    return select_prop(population, population_size, fitnesses, max_fitness);
+}
+
+void copy_program_to(Program *dst, Program *src) {
+    dst->length = src->length;
+    dst->code = malloc(sizeof(instruction_t) * src->length);
+    memcpy(dst->code, src->code, sizeof(instruction_t) * src->length);
 }
 
 Program *copy_program(Program *program) {
     Program *new_program = malloc(sizeof(Program));
-    new_program->length = program->length;
-    new_program->code = malloc(sizeof(instruction_t) * program->length);
-    memcpy(new_program->code, program->code, sizeof(instruction_t) * program->length);
+    copy_program_to(new_program, program);
     return new_program;
 }
 
@@ -259,33 +238,28 @@ void free_program(Program *program) {
     free(program);
 }
 
-void free_programs(Program **population) {
-    for (int i = 0; i < POPULATION_SIZE; i++) {
+void free_programs(Program **population, size_t population_size) {
+    for (int i = 0; i < population_size; i++) {
         free_program(population[i]);
     }
 }
 
-int main(int argc, char **argv) {
-    if (argc == 2) {
-        srand(atoi(argv[1]));
-    } else {
-        srand(time(0));
-    }
-    
-    Program *population[POPULATION_SIZE];
-    Program *new_population[POPULATION_SIZE];
+double evolve(size_t population_size, size_t n_generations, Program *evolved) {
+    Program *population[population_size];
+    Program *new_population[population_size];
 
-    for (int i = 0; i < POPULATION_SIZE; i++) {
-        population[i] = random_program();
+    for (int i = 0; i < population_size; i++) {
+	population[i] = random_program();
     }
 
-    double fitnesses[POPULATION_SIZE];
+    double fitnesses[population_size];
+    double evolved_fitness = -1;
 
-    for (int g = 1; g <= N_GENERATIONS; g++) {
+    for (int g = 1; g <= n_generations; g++) {
         double max_fitness = 0;
         double total_fitness = 0;
         int max_i = -1;
-        for (int i = 0; i < POPULATION_SIZE; i++) {
+        for (int i = 0; i < population_size; i++) {
             double fitness = 1 / (1 + calc_error(population[i]));
             total_fitness += fitness;
             fitnesses[i] = fitness;
@@ -296,29 +270,31 @@ int main(int argc, char **argv) {
         }
 
         if ((g-1) % 100 == 0) {
-            fprintf(stderr, "gen %d, max fitness %f, avg. fitness %f\n", g, max_fitness, total_fitness / (double)POPULATION_SIZE);
+            fprintf(stderr, "gen %d, max fitness %f, avg. fitness %f\n", g, max_fitness, total_fitness / (double)population_size);
         }
 
-        if (g < N_GENERATIONS) {
+        if (g < n_generations) {
             new_population[0] = copy_program(population[max_i]);
             int j = 1;
-            while (j < POPULATION_SIZE) {
-                if (randprob() < CROSSOVER_PROB && j + 1 < POPULATION_SIZE) {
-                    crossover(select_prop(population, fitnesses, max_fitness), select_prop(population, fitnesses, max_fitness), &new_population[j], &new_population[j+1]);
+            while (j < population_size) {
+                if (randprob() < CROSSOVER_PROB && j + 1 < population_size) {
+                    crossover(select_prop(population, population_size, fitnesses, max_fitness), select_prop(population, population_size, fitnesses, max_fitness), &new_population[j], &new_population[j+1]);
                     j += 2;
                 } else {
-                    new_population[j++] = copy_program(select_prop(population, fitnesses, max_fitness));
+                    new_population[j++] = copy_program(select_prop(population, population_size, fitnesses, max_fitness));
                 }
             }
-            free_programs(population);
-            memcpy(population, new_population, sizeof(Program *) * POPULATION_SIZE);
-        } else {            
-            print_program(population[max_i]);
-            print_data(population[max_i]);
-        }
+            free_programs(population, population_size);
+            memcpy(population, new_population, sizeof(Program *) * population_size);
+        } else {
+	    copy_program_to(evolved, population[max_i]);
+	    evolved_fitness = fitnesses[max_i];
+	}
     }
+    free_programs(population, population_size);
+    return evolved_fitness;
+}
 
-    free_programs(population);
-
-    return 0;
+int main(int argc, char **argv) {
+    // pass
 }
