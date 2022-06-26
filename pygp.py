@@ -19,7 +19,7 @@ def program_from_code(code):
 binops = ['ADD', 'SUB', 'MUL', 'DIV']
 unops = ['SQRT', 'EXP', 'COS']
 
-def code_to_tree(code):
+def tree_from_code(code):
     stack = []
     for insn in code:
         if insn in binops:
@@ -73,9 +73,9 @@ import timeit
 
 def benchmark1():
     prog = program_from_code(['C4', 'MUL', 'C8', 'EXP', 'C4', 'X', 'C3', 'EXP', 'X', 'C3', 'EXP', 'C5', 'COS', 'SUB', 'X', 'MUL', 'MUL', 'MUL', 'X', 'MUL', 'C4', 'MUL', 'MUL', 'MUL', 'C5', 'DIV', 'MUL', 'SQRT'])
-    return timeit.timeit(lambda: _gp.lib.calc_error(prog), number=10000000)
+    return timeit.timeit(lambda: _gp.lib.calc_error(prog, False), number=5000000), timeit.timeit(lambda: _gp.lib.calc_error(prog, True), number=5000000)
 
 def benchmark2():
     return timeit.timeit(lambda: evolve_program(population_size=1000, n_generations=100, seed=123), number=5), timeit.timeit(lambda: evolve_program(population_size=1000, n_generations=100, seed=123, optimize=True), number=5)
     
-print(benchmark2())
+# print(benchmark2())

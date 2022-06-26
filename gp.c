@@ -1,13 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <assert.h>
 #include <math.h>
 #include <time.h>
 #include <string.h>
-#include <stdbool.h>
 
 #include "gp.h"
+
+float C1_VAL = +1.0f;
+float C2_VAL = -1.0f;
+float C3_VAL = +0.5f;
+float C4_VAL = -0.5f;
+float C5_VAL = +0.25f;
+float C6_VAL = -0.25f;
+float C7_VAL = +0.125f;
+float C8_VAL = -0.125f;
+
+float CROSSOVER_PROB = 0.80f;
 
 float safesqrt(float x) {
     return x >= 0.0f ? sqrtf(x) : 0.0f;
@@ -18,13 +27,15 @@ float safediv(float x, float y) {
 }
 
 Program *optimize_program(Program *program) {
-    Program *new = malloc(sizeof(Program));
-    new->length = 0;
-    new->code = malloc(sizeof(instruction_t) * program->length);
-    size_t stack_size = 0;
+    size_t length = 0;
+    instruction_t *code = malloc(sizeof(instruction_t) * program->length);
+    size_t tos = 0;
+    size_t min_stack[STACK_SIZE];
     for (size_t pc = 0; pc < program->length; pc++) {
-	if (stack_size >= STACK_SIZE) {
+	if (tos >= STACK_SIZE) {
+	    Program *new = malloc(sizeof(Program));
 	    new->length = 0;
+	    new->code = NULL;
 	    return new;
 	}
 	switch (program->code[pc]) {
@@ -32,16 +43,16 @@ Program *optimize_program(Program *program) {
 	case SUB:
 	case MUL:
 	case DIV:
-	    if (stack_size >= 2) {
-		stack_size--;
-		new->code[new->length++] = program->code[pc];
+	    if (tos >= 2) {
+		tos--;
+		code[length++] = program->code[pc];
 	    }
 	    break;
 	case SQRT:
 	case EXP:
 	case COS:
-	    if (stack_size >= 1) {
-		new->code[new->length++] = program->code[pc];
+	    if (tos >= 1) {
+		code[length++] = program->code[pc];
 	    }
 	    break;
 	case X:
@@ -53,12 +64,25 @@ Program *optimize_program(Program *program) {
 	case C6:
 	case C7:
 	case C8:
-	    stack_size++;
-	    new->code[new->length++] = program->code[pc];
+	    min_stack[tos++] = length;
+	    code[length++] = program->code[pc];
 	    break;
 	}
     }
-    return new;
+    if (tos >= 1) {
+	size_t min = min_stack[tos-1];
+	Program *new = malloc(sizeof(Program));
+	new->length = length - min;
+	new->code = malloc(sizeof(instruction_t) * new->length);
+	memcpy(new->code, code + min, new->length);
+	free(code);
+	return new;
+    } else {
+	Program *new = malloc(sizeof(Program));
+	new->length = 0;
+	new->code = NULL;
+	return new;
+    }
 }
 
 float eval_optimized(Program *program, float x) {
@@ -240,6 +264,11 @@ Program *random_program() {
     return program;
 }
 
+void free_program(Program *program) {
+    free(program->code);
+    free(program);
+}
+
 #define SIZE_PENALTY 0.005
 
 float calc_error(Program *program, bool optimize) {
@@ -251,6 +280,7 @@ float calc_error(Program *program, bool optimize) {
 	    float y = x*x;
 	    error += fabs(y - eval_optimized(optimized, x));
 	}
+	free_program(optimized);
     } else {
 	for (int i = 0; i < 20; i++) {
 	    float x = -1.0f + ((float)i/10.0f);
@@ -283,11 +313,6 @@ Program *copy_program(Program *program) {
     Program *new_program = malloc(sizeof(Program));
     copy_program_to(new_program, program);
     return new_program;
-}
-
-void free_program(Program *program) {
-    free(program->code);
-    free(program);
 }
 
 void free_programs(Program **population, size_t population_size) {
@@ -347,8 +372,4 @@ float evolve(unsigned seed, size_t population_size, size_t n_generations, bool o
     }
     free_programs(population, population_size);
     return evolved_fitness;
-}
-
-int main(int argc, char **argv) {
-    // pass
 }
