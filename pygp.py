@@ -2,9 +2,9 @@ from math import *
 
 import _gp
 
-def evolve_program(population_size, n_generations):
+def evolve_program(population_size, n_generations, seed=0):
     res = _gp.ffi.new('Program *')
-    fitness = _gp.lib.evolve(population_size, n_generations, res)
+    fitness = _gp.lib.evolve(seed, population_size, n_generations, res)
     return res
 
 def code_from_program(program):
@@ -68,4 +68,14 @@ def simplify_tree(tree):
             elif simplified[0] in unops:
                 return eval_unop(simplified[0], simplified[1])
         return simplified
+
+import timeit
+
+def benchmark1():
+    prog = program_from_code(['C4', 'MUL', 'C8', 'EXP', 'C4', 'X', 'C3', 'EXP', 'X', 'C3', 'EXP', 'C5', 'COS', 'SUB', 'X', 'MUL', 'MUL', 'MUL', 'X', 'MUL', 'C4', 'MUL', 'MUL', 'MUL', 'C5', 'DIV', 'MUL', 'SQRT'])
+    return timeit.timeit(lambda: _gp.lib.calc_error(prog), number=10000000)
+
+def benchmark2():
+    return timeit.timeit(lambda: evolve_program(population_size=1000, n_generations=100, seed=123), number=10)
     
+print(benchmark2())

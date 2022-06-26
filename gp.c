@@ -8,17 +8,21 @@
 
 #include "gp.h"
 
-double safesqrt(double x) {
-    return x >= 0 ? sqrt(x) : 0;
+float safesqrt(float x) {
+    return x >= 0.0f ? sqrtf(x) : 0.0f;
 }
 
-double eval(Program *program, double x) {
-    double stack[STACK_SIZE];
+float safediv(float x, float y) {
+  return y == 0.0f ? 1.0f : x / y;
+}
+
+float eval(Program *program, float x) {
+    float stack[STACK_SIZE];
     size_t tos = 0;
     size_t pc = 0;
     while (pc < program->length) {
         if (tos >= STACK_SIZE) {
-            return 0;
+            return 0.0f;
         }
         switch (program->code[pc++]) {
         case ADD:
@@ -41,11 +45,7 @@ double eval(Program *program, double x) {
             break;
         case DIV:
             if (tos >= 2) {
-                if (stack[tos - 1] == 0) {
-                    stack[tos - 2] = 1;
-                } else {
-                    stack[tos - 2] = stack[tos - 2] / stack[tos - 1];
-                }
+		stack[tos - 2] = safediv(stack[tos - 2], stack[tos - 1]);
                 tos--;
             }
             break;
@@ -56,12 +56,12 @@ double eval(Program *program, double x) {
             break;
         case EXP:
             if (tos >= 1) {
-                stack[tos - 1] = exp(stack[tos - 1]);
+                stack[tos - 1] = expf(stack[tos - 1]);
             }
             break;
         case COS:
             if (tos >= 1) {
-                stack[tos - 1] = cos(stack[tos - 1]);
+                stack[tos - 1] = cosf(stack[tos - 1]);
             }
             break;
         case X:
@@ -93,67 +93,12 @@ double eval(Program *program, double x) {
             break;
         }        
     }
-    return tos > 0 ? stack[tos - 1] : 0;
-}
-
-void print_program(Program *program) {
-    for (ssize_t i = 0; i < program->length; i++) {
-        switch (program->code[i]) {
-        case ADD:
-            fprintf(stderr, "ADD\n");
-            break;
-        case SUB:
-            fprintf(stderr, "SUB\n");
-            break;
-        case MUL:
-            fprintf(stderr, "MUL\n");
-            break;
-        case DIV:
-            fprintf(stderr, "DIV\n");
-            break;
-        case SQRT:
-            fprintf(stderr, "SQRT\n");
-            break;
-        case EXP:
-            fprintf(stderr, "EXP\n");
-            break;
-        case COS:
-            fprintf(stderr, "COS\n");
-            break;
-        case X:
-            fprintf(stderr, "PUSH X\n");
-            break;
-        case C1:
-            fprintf(stderr, "PUSH %f\n", C1_VAL);
-            break;
-        case C2:
-            fprintf(stderr, "PUSH %f\n", C2_VAL);
-            break;
-        case C3:
-            fprintf(stderr, "PUSH %f\n", C3_VAL);
-            break;
-        case C4:
-            fprintf(stderr, "PUSH %f\n", C4_VAL);
-            break;
-        case C5:
-            fprintf(stderr, "PUSH %f\n", C5_VAL);
-            break;
-        case C6:
-            fprintf(stderr, "PUSH %f\n", C6_VAL);
-            break;
-        case C7:
-            fprintf(stderr, "PUSH %f\n", C7_VAL);
-            break;
-        case C8:
-            fprintf(stderr, "PUSH %f\n", C8_VAL);
-            break;
-        }        
-    }
+    return tos > 0 ? stack[tos - 1] : 0.0f;
 }
 
 size_t randsize(size_t min_size, size_t max_size) {
     /* [min_size,max_size) */
-    return min_size + (max_size - min_size - 1) * ((double)rand() / (double)RAND_MAX);
+    return min_size + (max_size - min_size - 1) * ((float)rand() / (float)RAND_MAX);
 }
 
 void crossover(Program *p1, Program *p2, Program **c1, Program **c2) {
@@ -191,29 +136,21 @@ Program *random_program() {
 
 #define SIZE_PENALTY 0.005
 
-double calc_error(Program *program) {
-    double error = 0;
+float calc_error(Program *program) {
+    float error = 0.0f;
     for (int i = 0; i < 20; i++) {
-        double x = -1 + ((double)i/10.0);
-        double y = x*x;
+        float x = -1.0f + ((float)i/10.0f);
+        float y = x*x;
         error += fabs(y - eval(program, x));
     }
-    return error + SIZE_PENALTY * (double)(program->length);
+    return error + SIZE_PENALTY * (float)(program->length);
 }
 
-void print_data(Program *program) {
-    for (int i = 0; i < 200; i++) {
-        double x = -1 + ((double)i/100.0);
-        double y = eval(program, x);
-        printf("%f %f\n", x, y);
-    }
+float randprob() {
+    return (float)(rand())/((float)(RAND_MAX));
 }
 
-double randprob() {
-    return (double)(rand())/((double)(RAND_MAX));
-}
-
-Program *select_prop(Program **population, size_t population_size, double *fitnesses, double max_fitness) {
+Program *select_prop(Program **population, size_t population_size, float *fitnesses, float max_fitness) {
     size_t randi = randsize(0, population_size);
     if (randprob() < fitnesses[randi]/max_fitness) {
         return population[randi];
@@ -244,7 +181,9 @@ void free_programs(Program **population, size_t population_size) {
     }
 }
 
-double evolve(size_t population_size, size_t n_generations, Program *evolved) {
+float evolve(unsigned seed, size_t population_size, size_t n_generations, Program *evolved) {
+    srand(seed);
+
     Program *population[population_size];
     Program *new_population[population_size];
 
@@ -252,15 +191,15 @@ double evolve(size_t population_size, size_t n_generations, Program *evolved) {
 	population[i] = random_program();
     }
 
-    double fitnesses[population_size];
-    double evolved_fitness = -1;
+    float fitnesses[population_size];
+    float evolved_fitness = -1;
 
     for (int g = 1; g <= n_generations; g++) {
-        double max_fitness = 0;
-        double total_fitness = 0;
+        float max_fitness = 0.0f;
+        float total_fitness = 0.0f;
         int max_i = -1;
         for (int i = 0; i < population_size; i++) {
-            double fitness = 1 / (1 + calc_error(population[i]));
+            float fitness = 1.0f / (1.0f + calc_error(population[i]));
             total_fitness += fitness;
             fitnesses[i] = fitness;
             if (fitness > max_fitness) {
@@ -269,8 +208,8 @@ double evolve(size_t population_size, size_t n_generations, Program *evolved) {
             }
         }
 
-        if ((g-1) % 100 == 0) {
-            fprintf(stderr, "gen %d, max fitness %f, avg. fitness %f\n", g, max_fitness, total_fitness / (double)population_size);
+        if (g == 1 || g % 100 == 0) {
+            fprintf(stderr, "gen %d, max fitness %f, avg. fitness %f\n", g, max_fitness, total_fitness / (float)population_size);
         }
 
         if (g < n_generations) {
