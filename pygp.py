@@ -2,9 +2,9 @@ from math import *
 
 import _gp
 
-def evolve_program(population_size, n_generations, seed=0):
+def evolve_program(population_size, n_generations, seed=0, optimize=False):
     res = _gp.ffi.new('Program *')
-    fitness = _gp.lib.evolve(seed, population_size, n_generations, res)
+    fitness = _gp.lib.evolve(seed, population_size, n_generations, optimize, res)
     return res
 
 def code_from_program(program):
@@ -76,6 +76,6 @@ def benchmark1():
     return timeit.timeit(lambda: _gp.lib.calc_error(prog), number=10000000)
 
 def benchmark2():
-    return timeit.timeit(lambda: evolve_program(population_size=1000, n_generations=100, seed=123), number=10)
+    return timeit.timeit(lambda: evolve_program(population_size=1000, n_generations=100, seed=123), number=5), timeit.timeit(lambda: evolve_program(population_size=1000, n_generations=100, seed=123, optimize=True), number=5)
     
 print(benchmark2())

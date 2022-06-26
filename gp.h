@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 typedef uint8_t instruction_t;
 
 typedef struct {
@@ -22,6 +24,8 @@ float C8_VAL = -0.125f;
 
 float CROSSOVER_PROB = 0.80f;
 
+Program *optimize_program(Program *program);
+float eval_optimized(Program *program, float x);
 float eval(Program *program, float x);
-float evolve(unsigned seed, size_t population_size, size_t n_generations, Program *evolved);
-float calc_error(Program *program);
+float evolve(unsigned seed, size_t population_size, size_t n_generations, bool optimize, Program *evolved);
+float calc_error(Program *program, bool optimize);

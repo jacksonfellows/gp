@@ -2,7 +2,7 @@ import cffi
 
 ffi = cffi.FFI()
 
-with open('./gp.h') as f:
+with open('./gp_pre.h') as f:
     ffi.cdef(f.read())
 
 ffi.set_source(

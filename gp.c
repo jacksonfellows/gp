@@ -5,6 +5,7 @@
 #include <math.h>
 #include <time.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "gp.h"
 
@@ -16,15 +17,120 @@ float safediv(float x, float y) {
   return y == 0.0f ? 1.0f : x / y;
 }
 
+Program *optimize_program(Program *program) {
+    Program *new = malloc(sizeof(Program));
+    new->length = 0;
+    new->code = malloc(sizeof(instruction_t) * program->length);
+    size_t stack_size = 0;
+    for (size_t pc = 0; pc < program->length; pc++) {
+	if (stack_size >= STACK_SIZE) {
+	    new->length = 0;
+	    return new;
+	}
+	switch (program->code[pc]) {
+	case ADD:
+	case SUB:
+	case MUL:
+	case DIV:
+	    if (stack_size >= 2) {
+		stack_size--;
+		new->code[new->length++] = program->code[pc];
+	    }
+	    break;
+	case SQRT:
+	case EXP:
+	case COS:
+	    if (stack_size >= 1) {
+		new->code[new->length++] = program->code[pc];
+	    }
+	    break;
+	case X:
+	case C1:
+	case C2:
+	case C3:
+	case C4:
+	case C5:
+	case C6:
+	case C7:
+	case C8:
+	    stack_size++;
+	    new->code[new->length++] = program->code[pc];
+	    break;
+	}
+    }
+    return new;
+}
+
+float eval_optimized(Program *program, float x) {
+    float stack[STACK_SIZE];
+    size_t tos = 0;
+    for (size_t pc = 0; pc < program->length; pc++) {
+        switch (program->code[pc]) {
+        case ADD:
+	    stack[tos - 2] = stack[tos - 2] + stack[tos - 1];
+	    tos--;
+            break;
+        case SUB:
+	    stack[tos - 2] = stack[tos - 2] - stack[tos - 1];
+	    tos--;
+            break;
+        case MUL:
+	    stack[tos - 2] = stack[tos - 2] * stack[tos - 1];
+	    tos--;
+            break;
+        case DIV:
+	    stack[tos - 2] = safediv(stack[tos - 2], stack[tos - 1]);
+	    tos--;
+            break;
+        case SQRT:
+	    stack[tos - 1] = safesqrt(stack[tos - 1]);                
+            break;
+        case EXP:
+	    stack[tos - 1] = expf(stack[tos - 1]);
+            break;
+        case COS:
+	    stack[tos - 1] = cosf(stack[tos - 1]);
+            break;
+        case X:
+            stack[tos++] = x;
+            break;
+        case C1:
+            stack[tos++] = C1_VAL;
+            break;
+        case C2:
+            stack[tos++] = C2_VAL;
+            break;
+        case C3:
+            stack[tos++] = C3_VAL;
+            break;
+        case C4:
+            stack[tos++] = C4_VAL;
+            break;
+        case C5:
+            stack[tos++] = C5_VAL;
+            break;
+        case C6:
+            stack[tos++] = C6_VAL;
+            break;
+        case C7:
+            stack[tos++] = C7_VAL;
+            break;
+        case C8:
+            stack[tos++] = C8_VAL;
+            break;
+        }        
+    }
+    return tos > 0 ? stack[tos - 1] : 0.0f;
+}
+
 float eval(Program *program, float x) {
     float stack[STACK_SIZE];
     size_t tos = 0;
-    size_t pc = 0;
-    while (pc < program->length) {
+    for (size_t pc = 0; pc < program->length; pc++) {
         if (tos >= STACK_SIZE) {
             return 0.0f;
         }
-        switch (program->code[pc++]) {
+        switch (program->code[pc]) {
         case ADD:
             if (tos >= 2) {
                 stack[tos - 2] = stack[tos - 2] + stack[tos - 1];
@@ -91,7 +197,7 @@ float eval(Program *program, float x) {
         case C8:
             stack[tos++] = C8_VAL;
             break;
-        }        
+        }
     }
     return tos > 0 ? stack[tos - 1] : 0.0f;
 }
@@ -136,12 +242,21 @@ Program *random_program() {
 
 #define SIZE_PENALTY 0.005
 
-float calc_error(Program *program) {
+float calc_error(Program *program, bool optimize) {
     float error = 0.0f;
-    for (int i = 0; i < 20; i++) {
-        float x = -1.0f + ((float)i/10.0f);
-        float y = x*x;
-        error += fabs(y - eval(program, x));
+    if (optimize) {
+	Program *optimized = optimize_program(program);
+	for (int i = 0; i < 20; i++) {
+	    float x = -1.0f + ((float)i/10.0f);
+	    float y = x*x;
+	    error += fabs(y - eval_optimized(optimized, x));
+	}
+    } else {
+	for (int i = 0; i < 20; i++) {
+	    float x = -1.0f + ((float)i/10.0f);
+	    float y = x*x;
+	    error += fabs(y - eval(program, x));
+	}
     }
     return error + SIZE_PENALTY * (float)(program->length);
 }
@@ -181,7 +296,7 @@ void free_programs(Program **population, size_t population_size) {
     }
 }
 
-float evolve(unsigned seed, size_t population_size, size_t n_generations, Program *evolved) {
+float evolve(unsigned seed, size_t population_size, size_t n_generations, bool optimize, Program *evolved) {
     srand(seed);
 
     Program *population[population_size];
@@ -199,7 +314,7 @@ float evolve(unsigned seed, size_t population_size, size_t n_generations, Progra
         float total_fitness = 0.0f;
         int max_i = -1;
         for (int i = 0; i < population_size; i++) {
-            float fitness = 1.0f / (1.0f + calc_error(population[i]));
+            float fitness = 1.0f / (1.0f + calc_error(population[i], optimize));
             total_fitness += fitness;
             fitnesses[i] = fitness;
             if (fitness > max_fitness) {
