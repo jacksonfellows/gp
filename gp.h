@@ -18,6 +18,15 @@ extern float C1_VAL, C2_VAL, C3_VAL, C4_VAL, C5_VAL, C6_VAL, C7_VAL, C8_VAL, CRO
 Program *optimize_program(Program *program);
 float eval_optimized(Program *program, float x);
 float eval(Program *program, float x);
-float evolve(unsigned seed, size_t population_size, size_t n_generations, bool optimize, Program *evolved);
+
+typedef struct {
+    unsigned seed;
+    size_t population_size;
+    size_t n_generations;
+    bool optimize;
+} EvolveConfig;
+
+float evolve(EvolveConfig config, Program *evolved);
+
 float calc_error(Program *program, bool optimize);
 Program *random_program();

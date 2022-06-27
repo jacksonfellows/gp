@@ -2,9 +2,10 @@ from math import *
 
 import _gp
 
-def evolve_program(population_size, n_generations, seed=0, optimize=False):
+def evolve_program(**kwargs):
     res = _gp.ffi.new('Program *')
-    fitness = _gp.lib.evolve(seed, population_size, n_generations, optimize, res)
+    assert(set(kwargs.keys()) == {'seed', 'population_size', 'n_generations', 'optimize'})
+    fitness = _gp.lib.evolve(kwargs, res)
     return res
 
 def code_from_program(program):

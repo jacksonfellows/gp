@@ -321,25 +321,25 @@ void free_programs(Program **population, size_t population_size) {
     }
 }
 
-float evolve(unsigned seed, size_t population_size, size_t n_generations, bool optimize, Program *evolved) {
-    srand(seed);
+float evolve(EvolveConfig config, Program *evolved) {
+    srand(config.seed);
 
-    Program *population[population_size];
-    Program *new_population[population_size];
+    Program *population[config.population_size];
+    Program *new_population[config.population_size];
 
-    for (int i = 0; i < population_size; i++) {
+    for (int i = 0; i < config.population_size; i++) {
 	population[i] = random_program();
     }
 
-    float fitnesses[population_size];
+    float fitnesses[config.population_size];
     float evolved_fitness = -1;
 
-    for (int g = 1; g <= n_generations; g++) {
+    for (int g = 1; g <= config.n_generations; g++) {
         float max_fitness = 0.0f;
         float total_fitness = 0.0f;
         int max_i = -1;
-        for (int i = 0; i < population_size; i++) {
-            float fitness = 1.0f / (1.0f + calc_error(population[i], optimize));
+        for (int i = 0; i < config.population_size; i++) {
+            float fitness = 1.0f / (1.0f + calc_error(population[i], config.optimize));
             total_fitness += fitness;
             fitnesses[i] = fitness;
             if (fitness > max_fitness) {
@@ -349,27 +349,27 @@ float evolve(unsigned seed, size_t population_size, size_t n_generations, bool o
         }
 
         if (g == 1 || g % 100 == 0) {
-            fprintf(stderr, "gen %d, max fitness %f, avg. fitness %f\n", g, max_fitness, total_fitness / (float)population_size);
+            fprintf(stderr, "gen %d, max fitness %f, avg. fitness %f\n", g, max_fitness, total_fitness / (float)config.population_size);
         }
 
-        if (g < n_generations) {
+        if (g < config.n_generations) {
             new_population[0] = copy_program(population[max_i]);
             int j = 1;
-            while (j < population_size) {
-                if (randprob() < CROSSOVER_PROB && j + 1 < population_size) {
-                    crossover(select_prop(population, population_size, fitnesses, max_fitness), select_prop(population, population_size, fitnesses, max_fitness), &new_population[j], &new_population[j+1]);
+            while (j < config.population_size) {
+                if (randprob() < CROSSOVER_PROB && j + 1 < config.population_size) {
+                    crossover(select_prop(population, config.population_size, fitnesses, max_fitness), select_prop(population, config.population_size, fitnesses, max_fitness), &new_population[j], &new_population[j+1]);
                     j += 2;
                 } else {
-                    new_population[j++] = copy_program(select_prop(population, population_size, fitnesses, max_fitness));
+                    new_population[j++] = copy_program(select_prop(population, config.population_size, fitnesses, max_fitness));
                 }
             }
-            free_programs(population, population_size);
-            memcpy(population, new_population, sizeof(Program *) * population_size);
+            free_programs(population, config.population_size);
+            memcpy(population, new_population, sizeof(Program *) * config.population_size);
         } else {
 	    copy_program_to(evolved, population[max_i]);
 	    evolved_fitness = fitnesses[max_i];
 	}
     }
-    free_programs(population, population_size);
+    free_programs(population, config.population_size);
     return evolved_fitness;
 }
