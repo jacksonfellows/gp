@@ -271,21 +271,17 @@ void free_program(Program *program) {
 
 #define SIZE_PENALTY 0.005
 
-float calc_error(Program *program, bool optimize) {
+float calc_error(EvolveConfig config, Program *program) {
     float error = 0.0f;
-    if (optimize) {
+    if (config.optimize) {
 	Program *optimized = optimize_program(program);
-	for (int i = 0; i < 20; i++) {
-	    float x = -1.0f + ((float)i/10.0f);
-	    float y = x*x;
-	    error += fabs(y - eval_optimized(optimized, x));
+	for (size_t i = 0; i < config.n_samples; i++) {
+	    error += fabs(config.y_samples[i] - eval_optimized(optimized, config.x_samples[i]));
 	}
 	free_program(optimized);
     } else {
-	for (int i = 0; i < 20; i++) {
-	    float x = -1.0f + ((float)i/10.0f);
-	    float y = x*x;
-	    error += fabs(y - eval(program, x));
+	for (size_t i = 0; i < config.n_samples; i++) {
+	    error += fabs(config.y_samples[i] - eval(program, config.x_samples[i]));
 	}
     }
     return error + SIZE_PENALTY * (float)(program->length);
@@ -339,7 +335,7 @@ float evolve(EvolveConfig config, Program *evolved) {
         float total_fitness = 0.0f;
         int max_i = -1;
         for (int i = 0; i < config.population_size; i++) {
-            float fitness = 1.0f / (1.0f + calc_error(population[i], config.optimize));
+            float fitness = 1.0f / (1.0f + calc_error(config, population[i]));
             total_fitness += fitness;
             fitnesses[i] = fitness;
             if (fitness > max_fitness) {

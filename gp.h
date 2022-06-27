@@ -24,9 +24,12 @@ typedef struct {
     size_t population_size;
     size_t n_generations;
     bool optimize;
+    float *x_samples;
+    float *y_samples;
+    size_t n_samples;
 } EvolveConfig;
 
 float evolve(EvolveConfig config, Program *evolved);
 
-float calc_error(Program *program, bool optimize);
+float calc_error(EvolveConfig config, Program *program);
 Program *random_program();

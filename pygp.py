@@ -4,7 +4,7 @@ import _gp
 
 def evolve_program(**kwargs):
     res = _gp.ffi.new('Program *')
-    assert(set(kwargs.keys()) == {'seed', 'population_size', 'n_generations', 'optimize'})
+    assert(set(kwargs.keys()) == {'seed', 'population_size', 'n_generations', 'optimize', 'x_samples', 'y_samples', 'n_samples'})
     fitness = _gp.lib.evolve(kwargs, res)
     return res
 
