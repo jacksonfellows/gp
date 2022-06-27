@@ -107,7 +107,7 @@ float eval_optimized(Program *program, float x) {
 	    tos--;
             break;
         case SQRT:
-	    stack[tos - 1] = safesqrt(stack[tos - 1]);                
+	    stack[tos - 1] = safesqrt(stack[tos - 1]);
             break;
         case EXP:
 	    stack[tos - 1] = expf(stack[tos - 1]);
@@ -142,7 +142,7 @@ float eval_optimized(Program *program, float x) {
         case C8:
             stack[tos++] = C8_VAL;
             break;
-        }        
+        }
     }
     return tos > 0 ? stack[tos - 1] : 0.0f;
 }
@@ -181,7 +181,7 @@ float eval(Program *program, float x) {
             break;
         case SQRT:
             if (tos >= 1) {
-                stack[tos - 1] = safesqrt(stack[tos - 1]);                
+                stack[tos - 1] = safesqrt(stack[tos - 1]);
             }
             break;
         case EXP:
@@ -243,7 +243,7 @@ void crossover(Program *p1, Program *p2, Program **c1, Program **c2) {
     memcpy((*c1)->code, p1->code, sizeof(instruction_t) * i);
     memcpy((*c2)->code, p2->code, sizeof(instruction_t) * j);
     memcpy((*c1)->code + i, p2->code + j, sizeof(instruction_t) * (p2->length - j));
-    memcpy((*c2)->code + j, p1->code + i, sizeof(instruction_t) * (p1->length - i));        
+    memcpy((*c2)->code + j, p1->code + i, sizeof(instruction_t) * (p1->length - i));
 }
 
 instruction_t randinst() {

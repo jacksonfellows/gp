@@ -77,5 +77,5 @@ def benchmark1():
 
 def benchmark2():
     return timeit.timeit(lambda: evolve_program(population_size=1000, n_generations=100, seed=123), number=5), timeit.timeit(lambda: evolve_program(population_size=1000, n_generations=100, seed=123, optimize=True), number=5)
-    
+
 # print(benchmark2())
