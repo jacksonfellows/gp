@@ -76,7 +76,13 @@ def benchmark1():
     prog = program_from_code(['C4', 'MUL', 'C8', 'EXP', 'C4', 'X', 'C3', 'EXP', 'X', 'C3', 'EXP', 'C5', 'COS', 'SUB', 'X', 'MUL', 'MUL', 'MUL', 'X', 'MUL', 'C4', 'MUL', 'MUL', 'MUL', 'C5', 'DIV', 'MUL', 'SQRT'])
     return timeit.timeit(lambda: _gp.lib.calc_error(prog, False), number=5000000), timeit.timeit(lambda: _gp.lib.calc_error(prog, True), number=5000000)
 
-def benchmark2():
-    return timeit.timeit(lambda: evolve_program(population_size=1000, n_generations=100, seed=123), number=5), timeit.timeit(lambda: evolve_program(population_size=1000, n_generations=100, seed=123, optimize=True), number=5)
+import numpy as np
+import matplotlib.pyplot as plt
 
-# print(benchmark2())
+def benchmark2():
+    def go():
+        xs = np.linspace(0,10,100,dtype='single')
+        ys = xs*xs
+        p = evolve_program(population_size=1000, n_generations=1000, seed=123, optimize=True, x_samples=_gp.ffi.from_buffer(xs), y_samples=_gp.ffi.from_buffer(ys), n_samples=len(xs))
+        print(code_from_program(p))
+    return timeit.timeit(go, number=1)

@@ -334,6 +334,7 @@ float evolve(EvolveConfig config, Program *evolved) {
         float max_fitness = 0.0f;
         float total_fitness = 0.0f;
         int max_i = -1;
+        #pragma omp parallel for
         for (int i = 0; i < config.population_size; i++) {
             float fitness = 1.0f / (1.0f + calc_error(config, population[i]));
             total_fitness += fitness;
