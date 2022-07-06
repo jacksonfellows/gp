@@ -271,20 +271,23 @@ void free_program(Program *program) {
 
 #define SIZE_PENALTY 0.005
 
-float calc_error(EvolveConfig config, Program *program) {
+float calc_error(EvolveConfig config, float ymin, float ymax, Program *program) {
     float error = 0.0f;
+    float diff;
     if (config.optimize) {
 	Program *optimized = optimize_program(program);
 	for (size_t i = 0; i < config.n_samples; i++) {
-	    error += fabs(config.y_samples[i] - eval_optimized(optimized, config.x_samples[i]));
+	    diff = config.y_samples[i] - eval_optimized(optimized, config.x_samples[i]);
+	    error += diff * diff;
 	}
 	free_program(optimized);
     } else {
 	for (size_t i = 0; i < config.n_samples; i++) {
-	    error += fabs(config.y_samples[i] - eval(program, config.x_samples[i]));
+	    diff = config.y_samples[i] - eval(program, config.x_samples[i]);
+	    error += diff * diff;
 	}
     }
-    return error + SIZE_PENALTY * (float)(program->length);
+    return sqrtf(error / config.n_samples) / (ymax - ymin) + SIZE_PENALTY * (float)(program->length);
 }
 
 float randprob() {
@@ -320,6 +323,20 @@ void free_programs(Program **population, size_t population_size) {
 float evolve(EvolveConfig config, Program *evolved) {
     srand(config.seed);
 
+    float ymin, ymax;
+    ymin = INFINITY;
+    ymax = -INFINITY;
+    for (size_t i = 0; i < config.n_samples; i++) {
+	if (config.y_samples[i] < ymin) {
+	    ymin = config.y_samples[i];
+	}
+	if (config.y_samples[i] > ymax) {
+	    ymax = config.y_samples[i];
+	}
+    }
+
+    fprintf(stderr, "ymin=%f, ymax=%f\n", ymin, ymax);
+
     Program *population[config.population_size];
     Program *new_population[config.population_size];
 
@@ -328,20 +345,24 @@ float evolve(EvolveConfig config, Program *evolved) {
     }
 
     float fitnesses[config.population_size];
-    float evolved_fitness = -1;
+    float evolved_fitness = -1.0f;
 
     for (int g = 1; g <= config.n_generations; g++) {
-        float max_fitness = 0.0f;
-        float total_fitness = 0.0f;
-        int max_i = -1;
         #pragma omp parallel for
-        for (int i = 0; i < config.population_size; i++) {
-            float fitness = 1.0f / (1.0f + calc_error(config, population[i]));
+        for (size_t i = 0; i < config.population_size; i++) {
+	    float error = calc_error(config, ymin, ymax, population[i]);
+            fitnesses[i] = 1.0f / (1.0f + error);
+	}
+
+	size_t imax;
+	float total_fitness = 0.0f;
+	float max_fitness = 0.0f;
+	for (size_t i = 0; i < config.population_size; i++) {
+	    float fitness = fitnesses[i];
             total_fitness += fitness;
-            fitnesses[i] = fitness;
             if (fitness > max_fitness) {
                 max_fitness = fitness;
-                max_i = i;
+                imax = i;
             }
         }
 
@@ -350,7 +371,7 @@ float evolve(EvolveConfig config, Program *evolved) {
         }
 
         if (g < config.n_generations) {
-            new_population[0] = copy_program(population[max_i]);
+            new_population[0] = copy_program(population[imax]);
             int j = 1;
             while (j < config.population_size) {
                 if (randprob() < CROSSOVER_PROB && j + 1 < config.population_size) {
@@ -363,8 +384,8 @@ float evolve(EvolveConfig config, Program *evolved) {
             free_programs(population, config.population_size);
             memcpy(population, new_population, sizeof(Program *) * config.population_size);
         } else {
-	    copy_program_to(evolved, population[max_i]);
-	    evolved_fitness = fitnesses[max_i];
+	    copy_program_to(evolved, population[imax]);
+	    evolved_fitness = max_fitness;
 	}
     }
     free_programs(population, config.population_size);

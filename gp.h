@@ -31,5 +31,4 @@ typedef struct {
 
 float evolve(EvolveConfig config, Program *evolved);
 
-float calc_error(EvolveConfig config, Program *program);
 Program *random_program();
